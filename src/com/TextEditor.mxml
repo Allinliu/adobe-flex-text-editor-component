@@ -1,0 +1,852 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  xmlns:colorPicker2="com.inspird.air.view.ui.control.textEditorSpark.colorPicker.*"
+		  xmlns:control="com.inspird.air.view.ui.control.*"
+		  creationComplete="onCreationComplete(event)"
+		  gap="0"
+		  xmlns:colorPicker="com.core.colorPicker.*">
+
+
+	<fx:Script>
+		<![CDATA[
+			import com.constant.AssetsConst;
+			import com.core.colorPicker.CustomColorPickerEvent;
+			import com.core.popup.PopupTitleWindow;
+			
+			import flash.text.engine.FontPosture;
+			import flash.text.engine.FontWeight;
+			
+			import flashx.textLayout.conversion.ConversionType;
+			import flashx.textLayout.conversion.TextConverter;
+			import flashx.textLayout.edit.EditManager;
+			import flashx.textLayout.elements.FlowElement;
+			import flashx.textLayout.elements.LinkElement;
+			import flashx.textLayout.elements.ListElement;
+			import flashx.textLayout.elements.TextFlow;
+			import flashx.textLayout.formats.ListStyleType;
+			import flashx.textLayout.formats.TextDecoration;
+			import flashx.textLayout.formats.TextLayoutFormat;
+			import flashx.textLayout.formats.WhiteSpaceCollapse;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.events.TextOperationEvent;
+			import spark.utils.TextFlowUtil;
+			
+			/**
+			 * 
+			 * @author Ihor Khomiak
+			 */
+
+			[Bindable]
+			public var fontFamily:String='Arial';
+
+			[Bindable]
+			public var fontSize:int=12;
+
+			[Bindable]
+			public var text:String;
+
+			[Bindable]
+			public var textAreaStyleName:String='';
+
+			[Bindable]
+			public var textFlow:TextFlow;
+
+			public var title:String="";
+
+			private var DEFAULT_FONT:Number=0;
+
+			private var DEFAULT_FONTSIZE:Number=2;
+
+			private var _isHideEditor:Boolean=true;
+
+			private var _position:String;
+
+			private var _showAllControls:Boolean=true;
+
+			private var _simpleText:String;
+
+			private var _sourceTextFlow:TextFlow;
+
+			[Bindable]
+			private var currentFormat:TextLayoutFormat;
+
+			[Bindable]
+			private var currentFormat1:TextLayoutFormat;
+
+			[Bindable]
+			private var currentFormat2:TextLayoutFormat;
+
+			[Bindable]
+			private var editManager:EditManager;
+
+			[Bindable]
+			private var items:ArrayCollection=new ArrayCollection(["Bold"]);
+
+			[Bindable]
+			public function get isHideEditor():Boolean
+			{
+				return _isHideEditor;
+			}
+
+			public function set isHideEditor(value:Boolean):void
+			{
+				_isHideEditor=value;
+			}
+
+			public function get position():String
+			{
+				return _position;
+			}
+
+			[Inspectable("top,bottom", defaultValue="top")]
+			[Bindable]
+			public function set position(value:String):void
+			{
+				_position=value;
+
+				if (value == "bottom")
+				{
+					setElementIndex(richEditor, 0);
+				}
+			}
+
+			public function setText(value:String):void
+			{
+				sourceText=value;
+				XML.ignoreWhitespace=false;
+
+				try
+				{
+					sourceTextFlow=TextFlowUtil.importFromXML(new XML(sourceText), WhiteSpaceCollapse.PRESERVE);
+				}
+				catch (error:Error)
+				{
+					sourceText='';
+					sourceTextFlow=TextFlowUtil.importFromXML(new XML(sourceText), WhiteSpaceCollapse.PRESERVE);
+					Alert.show('Description text is incorrect', 'Description text is incorrect');
+				}
+
+				XML.ignoreWhitespace=true;
+			}
+
+			public function setTextFlow(value:TextFlow):void
+			{
+				sourceTextFlow=value;
+			}
+
+			public function get showAllControls():Boolean
+			{
+				return _showAllControls;
+			}
+
+			public function set showAllControls(value:Boolean):void
+			{
+				_showAllControls=value;
+				alignButtonsGroup.visible=value;
+				alignButtonsGroup.includeInLayout=value;
+			}
+
+			public function get simpleText():String
+			{
+				return _simpleText;
+			}
+
+			public function get sourceText():String
+			{
+				return richEditor && richEditor.textFlow ? TextConverter.export(richEditor.textFlow, TextConverter.TEXT_LAYOUT_FORMAT, ConversionType.STRING_TYPE).toString() : '';
+			}
+
+			[Bindable]
+			public function set sourceText(value:String):void
+			{
+				if (!value)
+					return;
+
+				if (value.indexOf('version="3.0.0"') != -1)
+					value=value.replace('version="3.0.0"', 'version="2.0.0"');
+
+				if (!sourceTextFlow)
+				{
+					try
+					{
+						sourceTextFlow=TextFlowUtil.importFromXML(new XML(value), WhiteSpaceCollapse.PRESERVE);
+					}
+					catch (error:Error)
+					{
+						value='';
+						sourceTextFlow=TextFlowUtil.importFromXML(new XML(value), WhiteSpaceCollapse.PRESERVE);
+						Alert.show('Description text is incorrect', 'Description text is incorrect');
+					}
+				}
+			}
+
+			public function get sourceTextFlow():TextFlow
+			{
+				return _sourceTextFlow;
+			}
+
+			[Bindable]
+			public function set sourceTextFlow(value:TextFlow):void
+			{
+				_sourceTextFlow=value;
+				if (value)
+				{
+					if( !richEditor || !editManager )
+						return;
+					
+					richEditor.textFlow=_sourceTextFlow;
+					currentFormat=new TextLayoutFormat();
+					editManager=richEditor.textFlow.interactionManager as EditManager;
+					changeValues();
+				}
+			}
+
+			protected function bulletButton_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				//setTextStyles('bullet', event.currentTarget.selected);
+			}
+
+			protected function changeValues():void
+			{
+				textFlow=richEditor.textFlow;
+				text=TextConverter.export(textFlow, TextConverter.TEXT_LAYOUT_FORMAT, ConversionType.STRING_TYPE).toString();
+				_simpleText=richEditor.text;
+			}
+
+			protected function fontDDL_changeHandler(evt:IndexChangeEvent):void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+				format.fontFamily=fontDDL.selectedItem;
+				
+				//applyFormat(format);
+				editManager.applyLeafFormat(format);
+				richEditor.setFocus();
+			}
+
+			protected function goLink():void
+			{
+				txLink.setFocus();
+			}
+
+			private var _showFullControls:Boolean;
+
+			private var _isShowFullControls:Boolean;
+
+			public function set showFullControls(value:Boolean):void
+			{
+				_showFullControls=value;
+				_isShowFullControls=true;
+				this.invalidateProperties();
+			}
+
+			override protected function commitProperties():void
+			{
+				if (_isShowFullControls)
+				{
+					_isShowFullControls=false;
+					showEditorControls();
+				}
+				super.commitProperties();
+			}
+
+			protected function hideEditor_clickHandler(event:MouseEvent):void
+			{
+				this.showAllControls=true;
+				this.isHideEditor=false;
+
+				var popupTitleWindow:PopupTitleWindow=new PopupTitleWindow();
+				popupTitleWindow.addElement(this.editControlsBox);
+				popupTitleWindow.title=this.title;
+				popupTitleWindow.addEventListener(CloseEvent.CLOSE, popupTitleWindow_closeHandler);
+				popupTitleWindow.addEventListener(KeyboardEvent.KEY_DOWN, popupTitleWindow_closeHandler);
+				var displayObject:DisplayObject=DisplayObject(FlexGlobals.topLevelApplication);
+				PopUpManager.addPopUp(popupTitleWindow, displayObject, true);
+				PopUpManager.centerPopUp(popupTitleWindow);
+				stage.focus=txLink;
+				stage.focus=richEditor
+			}
+
+			protected function showEditorControls():void
+			{
+				if (_showFullControls)
+				{
+					this.showAllControls=true;
+					this.isHideEditor=false;
+					this.addElement(this.editControlsBox);
+				}
+				else
+				{
+					this.showAllControls=false;
+					this.isHideEditor=true;
+				}
+			}
+
+
+			protected function insertTab(event:KeyboardEvent):void
+			{
+				if (!event.shiftKey)
+				{
+					richEditor.insertText("\t");
+				}
+			}
+
+			protected function onChange(event:TextOperationEvent):void
+			{
+				changeValues();
+				dispatchEvent(new Event('textChanged', true));
+			}
+
+			protected function onCreationComplete(event:FlexEvent):void
+			{
+				editControlsBox.setStyle("backgroundColor", 0xe8e8e8);
+				richEditor.styleName=textAreaStyleName;
+				currentFormat=new TextLayoutFormat();
+				editManager=richEditor.textFlow.interactionManager as EditManager;
+				cpColor.addEventListener(CustomColorPickerEvent.CHANGE, setColor);
+				// addEventListener( KeyboardEvent.KEY_DOWN, onEnter );
+				addEventListener(Event.ADDED_TO_STAGE, onAddedToStage);
+				changeValues();
+			}
+
+			protected function onKeyFocusChange(event:FocusEvent):void
+			{
+				if (showAllControls)
+					event.preventDefault();
+			}
+
+			protected function onSetUnderline(event:KeyboardEvent):void
+			{
+				if (!event.shiftKey)
+				{
+					setUnderline();
+				}
+			}
+
+			protected function passTab(event:KeyboardEvent):void
+			{
+				richEditor.removeEventListener(FocusEvent.KEY_FOCUS_CHANGE, onKeyFocusChange);
+			}
+
+			protected function registerFocus():void
+			{
+				if (!richEditor.hasEventListener(FocusEvent.KEY_FOCUS_CHANGE))
+				{
+					richEditor.addEventListener(FocusEvent.KEY_FOCUS_CHANGE, onKeyFocusChange);
+				}
+			}
+
+			protected function removeTab(event:KeyboardEvent):void
+			{
+				var code:int=(richEditor.textFlow.getCharCodeAtPosition(editManager.absoluteEnd - 1));
+
+				if (code == Keyboard.TAB)
+				{
+					editManager.deletePreviousCharacter();
+				}
+			}
+
+			protected function selectionChange():void
+			{
+				if (editManager)
+				{
+					currentFormat=editManager.getCommonCharacterFormat();
+					if (currentFormat)
+					{
+						if (currentFormat.fontFamily)
+						{
+							fontDDL.selectedItem=currentFormat.fontFamily;
+						}
+
+						if (currentFormat.fontSize)
+						{
+							sizeDDL.selectedItem=currentFormat.fontSize;
+						}
+
+						if (currentFormat.fontWeight == FontWeight.BOLD)
+						{
+							btBold.selected=true;
+						}
+						else
+						{
+							btBold.selected=false;
+						}
+
+						// Italic
+						if (currentFormat.fontStyle == FontPosture.ITALIC)
+						{
+							btItalic.selected=true;
+						}
+						else
+						{
+							btItalic.selected=false;
+						}
+
+						// Underline
+						if (currentFormat.textDecoration == TextDecoration.UNDERLINE)
+						{
+							btUnderline.selected=true;
+						}
+						else
+						{
+							btUnderline.selected=false;
+						}
+
+						// Strike
+						if (currentFormat.lineThrough == true)
+						{
+							btStrike.selected=true;
+						}
+						else
+						{
+							btStrike.selected=false;
+						}
+
+						// Link
+						var link:LinkElement=findFirstFlowElement(richEditor.textFlow.findLeaf(editManager.activePosition), LinkElement) as LinkElement;
+						if (link)
+						{
+							btLink.selected=true;
+							txLink.text=link.href;
+						}
+						else
+						{
+							btLink.selected=false;
+							txLink.text="";
+						}
+
+						//lists
+						var list:ListElement=findFirstFlowElement(richEditor.textFlow.findLeaf(editManager.activePosition), ListElement) as ListElement;
+						if (list && list.listStyleType == ListStyleType.BOX)
+						{
+							btUlist.selected=true;
+						}
+						else
+						{
+							btUlist.selected=false;
+						}
+
+						if (list && list.listStyleType == ListStyleType.DECIMAL)
+						{
+							btOlist.selected=true;
+						}
+						else
+						{
+							btOlist.selected=false;
+						}
+
+
+						// Color
+						cpColor.selectedColor=currentFormat.color;
+					}
+				}
+			}
+
+			protected function setColor(color:uint=0, selector:Boolean=true):void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+				if (!selector)
+					format.color=color;
+				else
+					format.color=cpColor.selectedColor;
+
+				applyFormat(format);
+			}
+
+			protected function setDefaults(event:FlexEvent):void
+			{
+				var txtLayFmt:TextLayoutFormat=richEditor.getFormatOfRange(null, richEditor.selectionAnchorPosition, richEditor.selectionActivePosition);
+				fontDDL.selectedItem=fontList.source[DEFAULT_FONT];
+				sizeDDL.selectedItem=fontSizeList.source[DEFAULT_FONTSIZE];
+			}
+
+			protected function setItalic():void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+
+				if (currentFormat.fontStyle == FontPosture.ITALIC)
+				{
+					format.fontStyle=FontPosture.NORMAL;
+				}
+				else
+				{
+					format.fontStyle=FontPosture.ITALIC;
+				}
+				applyFormat(format);
+			}
+
+			protected function setLink():void
+			{
+				var link:LinkElement;
+
+				if (editManager.absoluteEnd != editManager.absoluteStart && txLink.text != "")
+				{
+					var format:TextLayoutFormat=new TextLayoutFormat();
+
+					if (isLink())
+					{
+						editManager.applyLink("", null, false);
+					}
+					else
+					{
+						format.color=0x0000FF;
+						format.textDecoration=TextDecoration.UNDERLINE;
+						link=editManager.applyLink(txLink.text, '_blank', true);
+					}
+
+					if (link)
+					{
+						editManager.applyFormatToElement(link, format);
+						richEditor.setFocus();
+					}
+					else
+					{
+						applyFormat(format);
+					}
+				}
+			}
+
+			protected function setOList():void
+			{
+				var currentList:ListElement=findFirstFlowElement(richEditor.textFlow.findLeaf(editManager.activePosition), ListElement) as ListElement;
+
+				if (currentList)
+				{
+					//remove list formating
+					var index:int=currentList.parent.getChildIndex(currentList);
+					editManager.moveChildren(currentList, 0, currentList.numChildren, currentList.parent, index);
+				}
+
+				if (!currentList || (currentList && currentList.listStyleType != ListStyleType.DECIMAL))
+				{
+					//add new list formating
+					var element:FlowElement=richEditor.textFlow.findLeaf(editManager.activePosition);
+					var spanStart:int=element.getParagraph().parentRelativeStart;
+					var spanEnd:int=element.getParagraph().parentRelativeEnd;
+					selectSpan(spanStart, spanEnd); // selecting full row programmatically
+
+					var format:TextLayoutFormat=new TextLayoutFormat();
+					format.listStyleType=ListStyleType.DECIMAL;
+					editManager.createList(null, format);
+					applyFormat(format);
+				}
+			}
+
+			protected function setStrike():void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+				if (currentFormat.lineThrough == true)
+				{
+					format.lineThrough=false;
+				}
+				else
+				{
+					format.lineThrough=true;
+				}
+				applyFormat(format);
+			}
+
+			protected function setUList():void
+			{
+				var currentList:ListElement=findFirstFlowElement(richEditor.textFlow.findLeaf(editManager.activePosition), ListElement) as ListElement;
+				if (currentList)
+				{
+					//remove list formating	
+					var index:int=currentList.parent.getChildIndex(currentList);
+					editManager.moveChildren(currentList, 0, currentList.numChildren, currentList.parent, index);
+				}
+
+				if (!currentList || (currentList && currentList.listStyleType != ListStyleType.BOX))
+				{
+					//add new list formating
+					var element:FlowElement=richEditor.textFlow.findLeaf(editManager.activePosition);
+					var spanStart:int=element.getParagraph().parentRelativeStart;
+					var spanEnd:int=element.getParagraph().parentRelativeEnd;
+					selectSpan(spanStart, spanEnd); // selecting full row programmatically
+
+					var format:TextLayoutFormat=new TextLayoutFormat();
+					format.listStyleType=ListStyleType.BOX;
+					editManager.createList(null, format);
+					applyFormat(format);
+				}
+			}
+
+			protected function setUnderline():void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+
+				if (currentFormat.textDecoration == TextDecoration.UNDERLINE)
+				{
+					format.textDecoration=TextDecoration.NONE;
+				}
+				else
+				{
+					format.textDecoration=TextDecoration.UNDERLINE;
+				}
+				applyFormat(format);
+			}
+
+			protected function sizeDDL_changeHandler(evt:IndexChangeEvent):void
+			{
+				var txtLayFmt:TextLayoutFormat=richEditor.getFormatOfRange(null, richEditor.selectionAnchorPosition, richEditor.selectionActivePosition);
+				txtLayFmt.fontSize=sizeDDL.selectedItem;
+				richEditor.setFormatOfRange(txtLayFmt, richEditor.selectionAnchorPosition, richEditor.selectionActivePosition);
+				richEditor.setFocus();
+			}
+
+			private function applyFormat(format:TextLayoutFormat):void
+			{
+				// Apply: Order is relevant
+				editManager.applyLeafFormat(format);
+				richEditor.setFocus();
+				selectionChange(); 
+			}
+
+			// Run over parent nodes until find (or not) a FlowElement
+			private function findFirstFlowElement(item:FlowElement, type:Class):FlowElement
+			{
+				if (item != null)
+				{
+					if (item is type)
+					{
+						return item;
+					}
+					else
+					{
+						return findFirstFlowElement(item.parent, type);
+					}
+				}
+				else
+				{
+					return null;
+				}
+			}
+
+			private function isLink():Boolean
+			{
+				if (findFirstFlowElement(richEditor.textFlow.findLeaf(editManager.activePosition), LinkElement))
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			private function onAddedToStage(event:Event):void
+			{
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, onEnter);
+			}
+
+			private function onEnter(event:KeyboardEvent):void
+			{
+				if (event.ctrlKey)
+				{
+					switch (event.keyCode)
+					{
+						case Keyboard.B:
+						{
+							setBold();
+							break;
+						}
+						case Keyboard.I:
+						{
+							setItalic();
+							break;
+						}
+						case Keyboard.U:
+						{
+							if (event.shiftKey)
+							{
+								setUList();
+							}
+							else
+							{
+								setUnderline();
+							}
+							break;
+						}
+						case Keyboard.T:
+						{
+							setStrike();
+							break;
+						}
+						case Keyboard.O:
+						{
+							if (event.shiftKey)
+							{
+								setOList();
+							}
+							break;
+						}
+						case Keyboard.L:
+						{
+							setLink();
+							break;
+						}
+						default:
+						{
+							break;
+						}
+					}
+				}
+			}
+
+			private function popupTitleWindow_closeHandler(event:Event):void
+			{
+				//this.percentHeight = 100;
+				if ((event is KeyboardEvent && (event as KeyboardEvent).keyCode == Keyboard.ESCAPE) || event is CloseEvent)
+				{
+					this.showAllControls=false;
+					this.isHideEditor=true;
+					this.addElement(this.editControlsBox);
+				}
+			}
+
+			private function selectSpan(i1:int, i2:int):void
+			{
+				richEditor.selectRange(i1, i2);
+			}
+
+
+
+			private function setBold():void
+			{
+				var format:TextLayoutFormat=new TextLayoutFormat();
+				if (currentFormat.fontWeight == FontWeight.BOLD)
+				{
+					format.fontWeight=FontWeight.NORMAL;
+				}
+				else
+				{
+					format.fontWeight=FontWeight.BOLD;
+				}
+				applyFormat(format);
+			}
+		]]>
+
+	</fx:Script>
+
+	<s:BorderContainer id="editControlsBox"
+					   width="100%"
+					   height="100%"
+					   borderColor="#CCCCCC"
+					   borderWeight="1">
+		<s:layout>
+			<s:VerticalLayout gap="0"/>
+		</s:layout>
+		<s:HGroup id="editBoxHGroup"
+				  width="100%"
+				  height="100%">
+			<s:TextArea id="richEditor"
+						width="100%"
+						height="100%"
+						change="onChange(event)"
+						focusIn="registerFocus()"
+						fontFamily="{fontFamily}"
+						fontSize="{fontSize}"
+						maxChars="4000"
+						paddingBottom="5"
+						paddingLeft="5"
+						paddingRight="5"
+						paddingTop="5"
+						selectionChange="selectionChange()"/>
+			<s:Image id="hideEditor"
+					 width="35"
+					 visible="{isHideEditor}"
+					 buttonMode="true"
+					 click="hideEditor_clickHandler(event)"
+					 includeInLayout="{isHideEditor}"
+					 source="{AssetsConst.PEN_BUTTON}"
+					 useHandCursor="true"/>
+		</s:HGroup>
+		<s:HGroup id="alignButtonsGroup"
+				  width="100%"
+				  height="16%"
+				  gap="0"
+				  paddingLeft="10"
+				  paddingRight="10"
+				  verticalAlign="middle">
+			<s:ComboBox id="fontDDL"
+						width="130"
+						change="fontDDL_changeHandler(event);"
+						creationComplete="setDefaults(event);">
+				<s:dataProvider>
+					<s:ArrayList id="fontList"
+								 source="[Arial,Times New Roman,Verdana,Trebuchet MS]"/>
+				</s:dataProvider>
+			</s:ComboBox>
+			<s:Rect width="10"/>
+			<s:ComboBox id="sizeDDL"
+						width="45"
+						change="sizeDDL_changeHandler(event);">
+				<s:dataProvider>
+					<s:ArrayList id="fontSizeList"
+								 source="[8,10,12,14,16,24,36,72]"/>
+				</s:dataProvider>
+			</s:ComboBox>
+			<s:Rect width="10"/>
+			<s:ToggleButton id="btBold"
+							click="setBold()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_BOLD}"
+							toolTip="Bold (Ctrl+B)"/>
+			<s:ToggleButton id="btItalic"
+							click="setItalic()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_ITALIC}"
+							toolTip="Italic (Ctrl+I)"/>
+			<s:ToggleButton id="btUnderline"
+							click="setUnderline()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_UNDERLINE}"
+							toolTip="Underline (Ctrl+U)"/>
+			<s:ToggleButton id="btStrike"
+							click="setStrike()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_STRIKETHROUGH}"
+							toolTip="Strike (Ctrl+T)"/>
+			<s:Rect width="10"/>
+			<s:ToggleButton id="btUlist"
+							click="setUList()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_LIST_BULLETS}"
+							toolTip="Unorder list (Ctrl+Shift+U)"/>
+			<s:ToggleButton id="btOlist"
+							click="setOList()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_LIST_NUMBERS}"
+							toolTip="Order list (Ctrl+Shift+O)"/>
+
+			<s:Rect width="10"/>
+
+			<colorPicker:CustomColorPicker id="cpColor"
+										   width="40"
+										   height="23"
+										   focusEnabled="false"/>
+			<s:Rect width="10"/>
+			<s:TextInput id="txLink"
+						 width="100%"
+						 height="23"
+						 enter="setLink()"
+						 focusEnabled="false"
+						 toolTip="set Link URL"/>
+			<s:ToggleButton id="btLink"
+							click="setLink()"
+							focusEnabled="false"
+							icon="{AssetsConst.ICON_TEXT_LINK}"
+							toolTip="Link (Ctrl+L)"/>
+		</s:HGroup>
+	</s:BorderContainer>
+</s:VGroup>

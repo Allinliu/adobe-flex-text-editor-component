@@ -1,0 +1,27 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+@namespace local "*";
+@namespace colorPicker "com.core.colorPicker.*";
+@namespace popup "com.core.popup.*";
+
+
+#closeButton
+{
+	skinClass:ClassReference("com.skin.button.PopupTitleWindowCloseButtonSkin");
+}
+
+s|ToggleButton
+{
+	skinClass:ClassReference("com.skin.button.ImageToggleButtonSkin");
+}
+
+colorPicker|CustomColorPicker
+{
+	skinClass:ClassReference("com.skin.colorPicker.CustomColorPickerSkin");
+}
+
+popup|PopupTitleWindow
+{
+	skinClass:ClassReference("com.skin.popup.PopupTitleWindowSkin");
+}

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   minWidth="955"
+			   minHeight="600"
+			   xmlns:com="com.*">
+	<fx:Style source="css/SkinStyle.css"/>
+	<fx:Script>
+		<![CDATA[
+			//example how to use Text Editor on Flex Project
+
+			import com.TextEditor;
+
+			import flashx.textLayout.conversion.TextConverter;
+
+			import mx.events.FlexEvent;
+
+			protected function txtEditor_creationCompleteHandler(event:FlexEvent):void
+			{
+				//if text is changing on Text Editor there is dispatching textChanged event
+				txtEditor.addEventListener('textChanged', txtEditor_textChangedHandler);
+
+				//example how to set text to Text Editor
+				//txtEditor.sourceText = 'example how to set text to Text Editor';
+			}
+
+			protected function txtEditor_textChangedHandler(event:Event):void
+			{
+				if (!txtEditor || !richTextLabel || !textInput)
+					return;
+
+				//seting TextEditor htmlText to richTextLabel
+				richTextLabel.textFlow=TextConverter.importToFlow(txtEditor.sourceText, TextConverter.TEXT_LAYOUT_FORMAT);
+
+				//seting TextEditor simpleText to textInput
+				textInput.text=txtEditor.simpleText;
+			}
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+	<s:VGroup id="verticalGroup"
+			  gap="10">
+		<!--Creating and adding Text Editor to stage-->
+		<com:TextEditor id="txtEditor"
+						showFullControls="false"
+						title="My Text Editor"
+						height="200"
+						width="600"
+						creationComplete="txtEditor_creationCompleteHandler(event)"/>
+
+		<s:Label text="Apply text changes from Text Editor to simple flex Rich Text"/>
+		<s:BorderContainer>
+			<s:RichText id="richTextLabel"
+						width="300"
+						height="50"/>
+		</s:BorderContainer>
+
+		<s:Label text="Apply text changes from Text Editor to simple flex Text Input"/>
+		<s:TextInput id="textInput"
+					 width="300"/>
+	</s:VGroup>
+
+</s:Application>
