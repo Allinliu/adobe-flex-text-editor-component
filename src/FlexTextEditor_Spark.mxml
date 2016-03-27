@@ -10,7 +10,7 @@
 		<![CDATA[
 			//example how to use Text Editor on Flex Project
 
-			import com.TextEditor;
+			import com.ComponentTextEditor;
 
 			import flashx.textLayout.conversion.TextConverter;
 
@@ -46,7 +46,7 @@
 	<s:VGroup id="verticalGroup"
 			  gap="10">
 		<!--Creating and adding Text Editor to stage-->
-		<com:TextEditor id="txtEditor"
+		<com:ComponentTextEditor id="txtEditor"
 						showFullControls="false"
 						title="My Text Editor"
 						height="200"
