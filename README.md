@@ -1,4 +1,4 @@
-# Flex Text Editor (Spark)
+# Adobe Flex Text Editor Component (Spark)
 
   Flex component for AIR/WEB applications.
 
